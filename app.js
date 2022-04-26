@@ -9,6 +9,8 @@ const QR = require('qrcode');
 const User = require('./model/user');
 const ConnectedDevice = require('./model/connectedDevice');
 const QRCode = require('./model/qrCode');
+const sendEmail = require('./utils/mail');
+const { mailTemp } = require('./utils/mailTemp');
 const helmet = require('helmet');
 
 connectDB();
@@ -43,10 +45,10 @@ app.get('/', async (req, res) => {
 app.post('/register', async (req, res) => {
   try {
     // Get user input
-    const { first_name, last_name, email, password, phone_number } = req.body;
+    const { name, email, password, gender, phone_number, DOB } = req.body;
 
     // Validate user input
-    if (!(email && password && first_name && last_name && phone_number)) {
+    if (!(email && password && name && gender && DOB && phone_number)) {
       return res.status(400).send('All input is required');
     }
 
@@ -57,19 +59,19 @@ app.post('/register', async (req, res) => {
     if (oldUser) {
       return res.status(409).send('User Already Exist. Please Login');
     }
-
+    const salt = await bcrypt.genSalt(10);
     // Encrypt user password
-    encryptedPassword = await bcrypt.hash(password, 10);
+    encryptedPassword = await bcrypt.hash(password, salt);
 
     // Create user in our database
     const user = await User.create({
-      first_name,
-      last_name,
+      name,
+      DOB,
       email,
       password: encryptedPassword,
       phone_number,
+      gender,
     });
-
     // Create token
     const token = jwt.sign(
       { user_id: user._id, email },
@@ -78,7 +80,12 @@ app.post('/register', async (req, res) => {
         expiresIn: '2h',
       }
     );
-
+    //send mail notification
+    await sendEmail({
+      email: user.email,
+      subject: 'Welcome to RCCG SOE',
+      message: await mailTemp(name),
+    });
     // return new user
     return res.status(201).json({ token: token, userId: user._id });
   } catch (err) {
