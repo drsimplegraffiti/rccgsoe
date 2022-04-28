@@ -309,9 +309,9 @@ app.get('/recent/attendance', isAuthUser, async (req, res) => {
     if (!checkUser) {
       return res.status(400).send('User not found');
     }
-    const recentAttendance = await ClockIn.find({ userId: checkUser._id })
-      .sort({ createdAt: -1 })
-      .limit(1);
+    const recentAttendance = await ClockIn.find({ userId: checkUser._id }).sort(
+      { createdAt: -1 }
+    );
     return res.status(200).json({ recentAttendance });
   } catch (error) {
     console.log(error);
