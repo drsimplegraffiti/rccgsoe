@@ -11,6 +11,8 @@ const ConnectedDevice = require('./model/connectedDevice');
 const QRCode = require('./model/qrCode');
 const sendEmail = require('./utils/mail');
 const { mailTemp } = require('./utils/mailTemp');
+const ClockIn = require('./model/clockIn');
+const { isAuthUser } = require('./middleware/auth');
 const helmet = require('helmet');
 
 connectDB();
@@ -258,6 +260,65 @@ app.post('/qr/scan', async (req, res) => {
     return res.status(200).json({ token: authToken });
   } catch (err) {
     console.log(err);
+  }
+});
+
+app.post('/clockin', isAuthUser, async (req, res) => {
+  try {
+    const { clockIn } = req.body;
+    const id = req.user.id;
+    const checkUser = await User.findOne(id);
+    if (!checkUser) {
+      return res.status(400).send('User not found');
+    }
+    const clockInUser = await ClockIn.create({
+      userId: checkUser._id,
+      clockIn: new Date(),
+    });
+    return res.status(200).json({ clockInUser });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      status: 'failed',
+      message: 'Internal Server Error',
+    });
+  }
+});
+
+app.get('/user/profile', isAuthUser, async (req, res) => {
+  try {
+    const id = req.user.id;
+    const checkUser = await User.findOne(id);
+    if (!checkUser) {
+      return res.status(400).send('User not found');
+    }
+    return res.status(200).json({ checkUser });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      status: 'failed',
+      message: 'Internal Server Error',
+    });
+  }
+});
+
+app.get('/recent/attendance', isAuthUser, async (req, res) => {
+  try {
+    const id = req.user.id;
+    const checkUser = await User.findOne(id);
+    if (!checkUser) {
+      return res.status(400).send('User not found');
+    }
+    const recentAttendance = await ClockIn.find({ userId: checkUser._id })
+      .sort({ createdAt: -1 })
+      .limit(1);
+    return res.status(200).json({ recentAttendance });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      status: 'failed',
+      message: 'Internal Server Error',
+    });
   }
 });
 module.exports = app;
